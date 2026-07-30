@@ -265,3 +265,54 @@ tables RLS-enabled-but-policy-less in the interim. Policies (and the
 `auth_org`/`is_staff`/`is_admin` helper functions they depend on) are instead
 added in the migration that creates the table they protect. Logged as ADR
 [0005](decisions/0005-demo-mode-auth.md) and MASTER_BUILD_SPEC.md §25 entry 011. Later phases follow the same per-table pattern.
+
+## 9. Phase 4 — Database architecture
+
+Full detail lives in [`DATABASE.md`](DATABASE.md). Summary for architectural
+context:
+
+### 9.1 Schema-complete, unverified-live
+
+Migrations 001–013 and 015 implement all 18 tables, 13 enums, 40+ indexes,
+and 4 pgvector search functions from §11.4 exactly as specified (RLS
+co-located per §8.5 above, rather than a separate `014_rls.sql`). No cloud
+Supabase project is configured in this environment
+(`NEXT_PUBLIC_SUPABASE_URL`/`SUPABASE_SERVICE_ROLE_KEY` unset), so the schema
+has not been applied or exercised against a live Postgres instance — every
+new integration test (`rls.test.ts` Phase 4 extension, `queries.test.ts`,
+`jobs.test.ts`) is written for real and `describe.skipIf`s itself in that
+state, exactly as the Phase 2 RLS suite already did. `npm run db:reset` runs
+the moment `DATABASE_URL`/a Supabase project exists.
+
+### 9.2 A fourth service-role call site
+
+§16.6 names three permitted call sites for the service-role client. Phase 4
+adds a fourth: `src/lib/db/admin-stats.ts`, backing the admin table-count
+card (§23.4 frontend task 1). Counting rows across every user's private
+conversations and messages is impossible under RLS from a session-scoped
+client by design — an admin-only aggregate read is exactly the case the
+service role exists for. The ESLint override in `eslint.config.mjs` and the
+doc comment in `lib/db/admin.ts` both enumerate all four sites.
+
+### 9.3 Job queue claim without `SELECT ... FOR UPDATE SKIP LOCKED`
+
+§8.5's claim step needs row locking, which PostgREST (Supabase's query layer)
+cannot express, and the row-locking database function it belongs in cannot
+be validated without a live Postgres to test `SKIP LOCKED` semantics against.
+`lib/db/queries/jobs.query.ts`'s `claimJobs()` instead issues one
+conditional `UPDATE ... WHERE status = <previous status>` per candidate row:
+still safe against double-processing (the second writer's `WHERE` no longer
+matches once the first commits), at the cost of one round-trip per row
+instead of one for the whole batch. Documented as a known gap in
+`docs/DATABASE.md`, upgradeable to a real `claim_jobs()` RPC without changing
+`claimJobs()`'s call signature.
+
+### 9.4 `/api/v1/jobs/process` is session-public, secret-private
+
+`src/middleware.ts` protects every route with a user session except a short
+allow-list (`/login`, `/api/v1/health`, ...). `pg_cron` has no session
+cookie to send, so `/api/v1/jobs/process` was added to that allow-list —
+its actual authentication is the constant-time `x-cron-secret` comparison
+inside the route handler itself, not the middleware's session check. The two
+are independent boundaries: skipping the session check does not skip the
+secret check.

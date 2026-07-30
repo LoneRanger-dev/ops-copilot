@@ -16,6 +16,9 @@
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "check:env": "tsx scripts/check-env.ts",
+    "db:migrate": "supabase migration up",
+    "db:reset": "tsx scripts/reset-db.ts",
+    "db:types": "supabase gen types typescript --local > src/types/database.types.ts",
     "prepare": "husky"
   },
   "lint-staged": {

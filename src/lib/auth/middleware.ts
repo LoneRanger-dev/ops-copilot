@@ -23,7 +23,11 @@ const PUBLIC_PATHS = [
   '/reset-password',
   '/callback',
 ];
-const PUBLIC_PREFIXES = ['/api/v1/health'];
+// `/api/v1/jobs/process` authenticates via a constant-time `x-cron-secret`
+// comparison inside the route handler itself (§23.4 backend task 4), not a
+// user session — pg_cron has no cookie to send. Excluding it here lets the
+// request reach that check instead of being redirected to `/login`.
+const PUBLIC_PREFIXES = ['/api/v1/health', '/api/v1/jobs/process'];
 
 function isPublicPath(pathname: string): boolean {
   if (PUBLIC_PATHS.includes(pathname)) return true;

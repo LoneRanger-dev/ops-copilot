@@ -41,7 +41,7 @@ const eslintConfig = [
 
   /*
    * Section 16.6 — the service-role client bypasses every RLS policy, so its
-   * import is restricted to the three sanctioned call sites. The override
+   * import is restricted to the four sanctioned call sites. The override
    * below re-enables it for exactly those paths.
    */
   {
@@ -55,8 +55,9 @@ const eslintConfig = [
               group: ['**/lib/db/admin', '@/lib/db/admin'],
               message:
                 'The service-role client bypasses RLS. It is permitted only in ' +
-                'lib/jobs/handlers/*, app/api/v1/jobs/process/route.ts, and ' +
-                'lib/integrations/servicenow/sync.ts. Use @/lib/db/client instead.',
+                'lib/jobs/handlers/*, app/api/v1/jobs/process/route.ts, ' +
+                'lib/integrations/servicenow/sync.ts, and lib/db/admin-stats.ts. ' +
+                'Use @/lib/db/client instead.',
             },
           ],
         },
@@ -68,6 +69,7 @@ const eslintConfig = [
       'src/lib/jobs/handlers/*.ts',
       'src/app/api/v1/jobs/process/route.ts',
       'src/lib/integrations/servicenow/sync.ts',
+      'src/lib/db/admin-stats.ts',
     ],
     rules: { 'no-restricted-imports': 'off' },
   },

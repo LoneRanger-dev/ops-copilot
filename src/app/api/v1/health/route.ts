@@ -45,8 +45,13 @@ function notConfigured(requiredFrom: string): DependencyHealth {
   };
 }
 
-async function checkPostgres(): Promise<DependencyHealth> {
-  if (!isConfigured.database) return notConfigured('Phase 4');
+async function checkPostgres(): Promise<{
+  postgres: DependencyHealth;
+  vector: DependencyHealth;
+}> {
+  if (!isConfigured.database) {
+    return { postgres: notConfigured('Phase 4'), vector: notConfigured('Phase 4') };
+  }
 
   const started = Date.now();
   const client = new Client({
@@ -57,14 +62,38 @@ async function checkPostgres(): Promise<DependencyHealth> {
   try {
     await withTimeout(client.connect(), HEALTH_CHECK_TIMEOUT_MS);
     await withTimeout(client.query('select 1'), HEALTH_CHECK_TIMEOUT_MS);
-    return { status: 'up', latencyMs: Date.now() - started };
+    const postgres: DependencyHealth = { status: 'up', latencyMs: Date.now() - started };
+
+    // pgvector check (§23.4 backend task 6): a trivial distance operation
+    // fails immediately if the extension is missing, with a clear message.
+    const vectorStarted = Date.now();
+    let vector: DependencyHealth;
+    try {
+      await withTimeout(
+        client.query("select '[1,2,3]'::vector <=> '[1,2,3]'::vector"),
+        HEALTH_CHECK_TIMEOUT_MS,
+      );
+      vector = { status: 'up', latencyMs: Date.now() - vectorStarted };
+    } catch (vectorError) {
+      vector = {
+        status: 'down',
+        latencyMs: null,
+        note:
+          vectorError instanceof Error
+            ? `pgvector unavailable: ${vectorError.message}`
+            : 'pgvector unavailable',
+      };
+    }
+
+    return { postgres, vector };
   } catch (error) {
     logger.warn({ err: error }, 'Health check failed: postgres');
-    return {
+    const down: DependencyHealth = {
       status: 'down',
       latencyMs: null,
       note: error instanceof Error ? error.message : 'Unknown error',
     };
+    return { postgres: down, vector: down };
   } finally {
     // end() rejects if connect() never succeeded; that is not a health signal.
     await client.end().catch(() => undefined);
@@ -113,9 +142,16 @@ function overallStatus(deps: Record<string, DependencyHealth>): DependencyStatus
 }
 
 export async function GET(): Promise<Response> {
-  const [database, redis] = await Promise.all([checkPostgres(), checkRedis()]);
+  const [{ postgres, vector }, redis] = await Promise.all([
+    checkPostgres(),
+    checkRedis(),
+  ]);
 
-  const dependencies: Record<string, DependencyHealth> = { database, redis };
+  const dependencies: Record<string, DependencyHealth> = {
+    database: postgres,
+    vector,
+    redis,
+  };
   const status = overallStatus(dependencies);
 
   const report: HealthReport = {

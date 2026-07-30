@@ -10,10 +10,11 @@ import type { Database } from '@/types/database.types';
  *   - `src/lib/jobs/handlers/*`
  *   - `src/app/api/v1/jobs/process/route.ts`
  *   - `src/lib/integrations/servicenow/sync.ts`
+ *   - `src/lib/db/admin-stats.ts` (admin table-count widget, §23.4)
  *
- * Not used in Phase 2 — created now because the ESLint restriction that
- * governs it was installed ahead of time in Phase 1. It will be exercised
- * starting with the ingestion worker in Phase 5.
+ * Exercised starting with Phase 4's job queue (`app/api/v1/jobs/process`)
+ * and the admin row-count card; the ingestion worker (Phase 5) and
+ * ServiceNow sync (Phase 8) add their own call sites later.
  */
 export function createAdminClient() {
   if (
