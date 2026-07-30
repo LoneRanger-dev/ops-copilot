@@ -7,7 +7,7 @@ Updated at every phase boundary (Build Rule 10). The authoritative specification
 is `MASTER_BUILD_SPEC.md` at the repository root; this document records what has
 actually been built and where reality diverged from the specification.
 
-**Current phase: 1 of 12 — Repository Initialization (complete).**
+**Current phase: 2 of 12 — Authentication (complete).**
 
 ---
 
@@ -198,3 +198,70 @@ All dependencies are pinned exactly. `package.json` contains no `^` or `~`, and
 | `eslint-plugin-boundaries` layer rules | Phase 3     | `components/` does not exist yet.                                                                                                                                                            |
 | Content-Security-Policy                | Phase 11    | Requires the full inventory of script and style sources.                                                                                                                                     |
 | Theme provider (`next-themes`)         | Phase 3     | Phase 1 honours the OS preference via `prefers-color-scheme`; the `:root:not(.light)` selector means the Phase 3 class-based provider will take precedence without revising the token block. |
+
+---
+
+## 8. Phase 2 — Authentication architecture
+
+### 8.1 Dual-mode auth, one interface
+
+Every caller — pages, Server Actions, `<RoleGate>`, the future API handler
+pipeline — reads the session through exactly one module,
+`src/lib/auth/server.ts` (`getSession`, `requireUser`, `requireRole`). That
+module branches on `isConfigured.supabase`; nothing downstream needs to know
+which backend is active.
+
+**Why:** the portability override requires `OPENAI_API_KEY` to be the only
+variable a fresh clone must supply (`docs/IMPLEMENTATION_OVERRIDE.md`), and
+Docker is removed, so there is no local Supabase/Postgres stack to stand up.
+Demo mode is a fully working, tested second implementation of the same
+interface — not a stub — seeded with the four personas from spec §2.3 (Priya,
+Marcus, Dana, Sam), so every acceptance criterion in §23.2 is verifiable
+without any external service. See ADR [0005](decisions/0005-demo-mode-auth.md).
+
+### 8.2 Session mechanics
+
+| Concern          | Supabase mode                                                | Demo mode                                                                                                                       |
+| ---------------- | ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------- |
+| Session storage  | Supabase JWT, cookie-based via `@supabase/ssr`               | HMAC-SHA256-signed cookie (`oc_session`), Web Crypto (`crypto.subtle`) — runs unchanged in Node and the Edge middleware runtime |
+| Session refresh  | `@supabase/ssr` in `src/middleware.ts`                       | Sliding expiry re-issued by `src/lib/auth/middleware.ts` on every request carrying a valid cookie                               |
+| MFA              | Supabase native `auth.mfa` (AAL1/AAL2), `challengeAndVerify` | `oc_mfa_pending` short-lived cookie + `otpauth`-based TOTP (`src/lib/auth/mfa.ts`)                                              |
+| User store       | Postgres `profiles` table, RLS-enforced                      | In-memory `Map`, pinned to `globalThis` so Fast Refresh does not lose data mid-session (`src/lib/auth/demo-store.ts`)           |
+| Password hashing | Supabase-managed                                             | `node:crypto` `scrypt`, timing-safe compare                                                                                     |
+
+Demo-mode storage resets on every `next dev`/`next start` restart — acceptable
+for a hackathon demo whose personas are reseeded deterministically on boot, and
+explicitly NOT a substitute for Supabase/Postgres once a project exists.
+
+### 8.3 Three-layer RBAC enforcement (§16.7)
+
+1. **UI** — `<RoleGate role="admin">` (`src/components/shared/role-gate.tsx`).
+   Convenience only; trivially bypassed by calling the API directly.
+2. **API** — `assertCan()` / `assertRoleAtLeast()` in `src/lib/auth/rbac.ts`,
+   applied by `src/lib/api/handler.ts`'s five-stage pipeline. Returns 403
+   (`ForbiddenError`).
+3. **Database** — Postgres RLS policies on `organizations` and `profiles`
+   (`supabase/migrations/003_organizations.sql`,
+   `004_profiles.sql`). **The boundary that actually holds** — `rls.test.ts`
+   asserts this directly against a live Supabase project when one is
+   configured, and is otherwise skipped with an explicit note rather than
+   faked (see ADR 0005).
+
+### 8.4 API error/response contract
+
+`src/lib/api/errors.ts` implements the full `AppError` hierarchy and error code
+registry from §8.3; `responses.ts` builds the success/failure envelope from
+§8.2; `handler.ts` wires stages 1 (authenticate), 2 (authorise), and 5
+(execute) of the five-stage pipeline. Stage 4 (rate limiting) is a documented
+no-op until Redis exists in Phase 6 — the gap is a comment, not a silent
+omission, matching §8.6's `REDIS_FAIL_OPEN` philosophy.
+
+### 8.5 RLS policies co-located with their table's migration
+
+Spec §11.3 places all RLS policies in a single `014_rls.sql`, applied after
+every table exists. Phase 2 only creates `organizations` and `profiles`
+(migrations 003–004), so `014_rls.sql` cannot exist yet without leaving both
+tables RLS-enabled-but-policy-less in the interim. Policies (and the
+`auth_org`/`is_staff`/`is_admin` helper functions they depend on) are instead
+added in the migration that creates the table they protect. Logged as ADR
+[0005](decisions/0005-demo-mode-auth.md) and MASTER_BUILD_SPEC.md §25 entry 011. Later phases follow the same per-table pattern.

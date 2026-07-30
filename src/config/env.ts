@@ -75,6 +75,9 @@ const redisUrl = urlWithProtocol(['redis', 'rediss'], 'redis://localhost:6379');
 /** Development-only fallback. The production guard below rejects it. */
 const DEV_CRON_SECRET = 'dev-only-cron-secret-not-for-production-use-0123';
 
+/** Development-only fallback. The production guard below rejects it. */
+const DEV_DEMO_AUTH_SECRET = 'dev-only-demo-auth-secret-not-for-production-01';
+
 export const envSchema = z.object({
   // -- The only required variable -------------------------------------------
   OPENAI_API_KEY: z
@@ -103,6 +106,19 @@ export const envSchema = z.object({
   NEXT_PUBLIC_SUPABASE_URL: httpUrl.optional(),
   NEXT_PUBLIC_SUPABASE_ANON_KEY: z.string().min(20).optional(),
   SUPABASE_SERVICE_ROLE_KEY: z.string().min(20).optional(),
+
+  // -- Azure AD OIDC SSO (Phase 2). Optional: configured within the Supabase
+  // Auth provider dashboard, not read directly by this app. Present here only
+  // so `check:env` can report configuration status. ------------------------
+  AZURE_AD_CLIENT_ID: z.string().optional(),
+  AZURE_AD_CLIENT_SECRET: z.string().optional(),
+  AZURE_AD_TENANT_ID: z.string().optional(),
+  NEXT_PUBLIC_SSO_ENABLED: boolFlag(false),
+
+  // -- Demo-mode authentication (Phase 2 portability override). Signs the
+  // cookie session used when Supabase is not configured. Dev default only;
+  // rejected in production below if demo mode ever ran there. --------------
+  DEMO_AUTH_SECRET: z.string().min(32).default(DEV_DEMO_AUTH_SECRET),
 
   // -- Postgres (Phase 4). Optional: absent on a fresh clone. ---------------
   DATABASE_URL: postgresUrl.optional(),
@@ -174,6 +190,17 @@ if (!isBuildPhase && env.NODE_ENV === 'production') {
       'CRON_SECRET is still the development default. Generate one with: openssl rand -hex 32',
     );
   }
+  if (!isConfiguredSupabase(env) && env.DEMO_AUTH_SECRET === DEV_DEMO_AUTH_SECRET) {
+    throw new Error(
+      'Demo-mode authentication cannot run in production with the default ' +
+        'DEMO_AUTH_SECRET. Configure Supabase, or set a generated ' +
+        'DEMO_AUTH_SECRET (openssl rand -hex 32) if demo mode is intentional.',
+    );
+  }
+}
+
+function isConfiguredSupabase(e: Env): boolean {
+  return Boolean(e.NEXT_PUBLIC_SUPABASE_URL && e.NEXT_PUBLIC_SUPABASE_ANON_KEY);
 }
 
 /**
