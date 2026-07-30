@@ -1,0 +1,27 @@
+# Normalise line endings across platforms.
+#
+# Without this, Git converts LF to CRLF on Windows checkout while .prettierrc
+# specifies endOfLine: "lf" — so `npm run format:check` fails on a fresh clone
+# even though nothing is wrong with the code. Forcing LF in the working tree
+# keeps the quality gates passing on any machine.
+
+* text=auto eol=lf
+
+# Binary assets: never touch these.
+*.png  binary
+*.jpg  binary
+*.jpeg binary
+*.gif  binary
+*.ico  binary
+*.webp binary
+*.woff binary
+*.woff2 binary
+*.ttf  binary
+*.otf  binary
+*.pdf  binary
+*.docx binary
+*.xlsx binary
+*.zip  binary
+
+# Generated — collapse in diffs and exclude from language statistics.
+package-lock.json linguist-generated=true -diff
