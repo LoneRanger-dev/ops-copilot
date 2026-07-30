@@ -1,26 +1,157 @@
-@import "tailwindcss";
+@import 'tailwindcss';
+
+/*
+ * Design tokens — MASTER_BUILD_SPEC section 7.6.
+ * Tailwind v4 is CSS-first: there is no tailwind.config.ts.
+ */
+
+@custom-variant dark (&:is(.dark *));
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --radius: 0.5rem;
+  --background: hsl(0 0% 100%);
+  --foreground: hsl(240 10% 4%);
+  --card: hsl(0 0% 100%);
+  --card-foreground: hsl(240 10% 4%);
+  --primary: hsl(243 75% 59%); /* indigo — single accent */
+  --primary-foreground: hsl(0 0% 98%);
+  --secondary: hsl(240 5% 96%);
+  --secondary-foreground: hsl(240 6% 10%);
+  --muted: hsl(240 5% 96%);
+  --muted-foreground: hsl(240 4% 46%);
+  --accent: hsl(240 5% 96%);
+  --accent-foreground: hsl(240 6% 10%);
+  --destructive: hsl(0 72% 51%);
+  --success: hsl(142 71% 45%);
+  --warning: hsl(38 92% 50%);
+  --info: hsl(199 89% 48%);
+  --border: hsl(240 6% 90%);
+  --input: hsl(240 6% 90%);
+  --ring: hsl(243 75% 59%);
+  /* Severity — maps to ServiceNow priority 1..5 */
+  --sev-critical: hsl(0 72% 51%);
+  --sev-high: hsl(25 95% 53%);
+  --sev-moderate: hsl(38 92% 50%);
+  --sev-low: hsl(199 89% 48%);
+  --sev-planning: hsl(240 4% 46%);
+}
+
+.dark {
+  --background: hsl(240 10% 4%);
+  --foreground: hsl(0 0% 98%);
+  --card: hsl(240 8% 7%);
+  --card-foreground: hsl(0 0% 98%);
+  --primary: hsl(243 75% 68%);
+  --primary-foreground: hsl(240 10% 4%);
+  --secondary: hsl(240 4% 14%);
+  --secondary-foreground: hsl(0 0% 98%);
+  --muted: hsl(240 4% 14%);
+  --muted-foreground: hsl(240 5% 65%);
+  --accent: hsl(240 4% 14%);
+  --accent-foreground: hsl(0 0% 98%);
+  --destructive: hsl(0 63% 55%);
+  --success: hsl(142 65% 52%);
+  --warning: hsl(38 88% 58%);
+  --info: hsl(199 82% 58%);
+  --border: hsl(240 4% 18%);
+  --input: hsl(240 4% 18%);
+  --ring: hsl(243 75% 68%);
+}
+
+/*
+ * System-preference fallback.
+ *
+ * The token contract above is class-based, which is what next-themes drives in
+ * Phase 3. Until that provider exists, honour the OS preference so the dark
+ * theme is verifiable now. `:root:not(.light)` means an explicit theme class
+ * always wins once Phase 3 lands, so this block needs no revision then.
+ */
+@media (prefers-color-scheme: dark) {
+  :root:not(.light) {
+    --background: hsl(240 10% 4%);
+    --foreground: hsl(0 0% 98%);
+    --card: hsl(240 8% 7%);
+    --card-foreground: hsl(0 0% 98%);
+    --primary: hsl(243 75% 68%);
+    --primary-foreground: hsl(240 10% 4%);
+    --secondary: hsl(240 4% 14%);
+    --secondary-foreground: hsl(0 0% 98%);
+    --muted: hsl(240 4% 14%);
+    --muted-foreground: hsl(240 5% 65%);
+    --accent: hsl(240 4% 14%);
+    --accent-foreground: hsl(0 0% 98%);
+    --destructive: hsl(0 63% 55%);
+    --success: hsl(142 65% 52%);
+    --warning: hsl(38 88% 58%);
+    --info: hsl(199 82% 58%);
+    --border: hsl(240 4% 18%);
+    --input: hsl(240 4% 18%);
+    --ring: hsl(243 75% 68%);
+  }
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-info: var(--info);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-sev-critical: var(--sev-critical);
+  --color-sev-high: var(--sev-high);
+  --color-sev-moderate: var(--sev-moderate);
+  --color-sev-low: var(--sev-low);
+  --color-sev-planning: var(--sev-planning);
+  --font-sans: var(--font-inter);
+  --font-mono: var(--font-jetbrains-mono);
+  --radius-sm: calc(var(--radius) - 2px);
+  --radius-md: var(--radius);
+  --radius-lg: calc(var(--radius) + 2px);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+@layer base {
+  * {
+    border-color: var(--border);
+  }
+
+  body {
+    background-color: var(--background);
+    color: var(--foreground);
+    font-family: var(--font-sans), system-ui, sans-serif;
+    /* Body is 15px — denser than Tailwind's 16px default (section 7.6). */
+    font-size: 15px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* Visible focus on every interactive element (section 4.5, WCAG 2.2 AA). */
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+/* Honour reduced-motion everywhere (assumption A-20). */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
