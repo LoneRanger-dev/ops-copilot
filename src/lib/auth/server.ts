@@ -1,6 +1,10 @@
 import { cookies } from 'next/headers';
 import { isConfigured } from '@/config/env';
-import type { UserRole } from '@/config/constants';
+import {
+  parsePreferences,
+  type UserPreferences,
+  type UserRole,
+} from '@/config/constants';
 import { UnauthenticatedError } from '@/lib/api/errors';
 import { createServerSupabaseClient } from '@/lib/db/client';
 import { getProfileById } from '@/lib/db/queries/users.query';
@@ -27,7 +31,9 @@ export interface AuthUser {
   readonly fullName: string | null;
   readonly role: UserRole;
   readonly orgId: string;
+  readonly department: string | null;
   readonly mfaEnrolled: boolean;
+  readonly preferences: UserPreferences;
 }
 
 export async function getSession(): Promise<AuthUser | null> {
@@ -47,7 +53,9 @@ export async function getSession(): Promise<AuthUser | null> {
       fullName: profile.full_name,
       role: profile.role,
       orgId: profile.org_id,
+      department: profile.department,
       mfaEnrolled: profile.mfa_enrolled,
+      preferences: parsePreferences(profile.preferences),
     };
   }
 
@@ -67,7 +75,9 @@ export async function getSession(): Promise<AuthUser | null> {
     fullName: user.fullName,
     role: user.role,
     orgId: user.orgId,
+    department: user.department,
     mfaEnrolled: user.mfaEnrolled,
+    preferences: user.preferences,
   };
 }
 

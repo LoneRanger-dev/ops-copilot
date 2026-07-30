@@ -1,7 +1,9 @@
 import type { Metadata, Viewport } from 'next';
 import { Inter, JetBrains_Mono } from 'next/font/google';
-import { Toaster } from 'sonner';
 import { siteConfig } from '@/config/site';
+import { ThemeProvider } from '@/components/providers/theme-provider';
+import { QueryProvider } from '@/components/providers/query-provider';
+import { ToastProvider } from '@/components/providers/toast-provider';
 import './globals.css';
 
 /*
@@ -43,11 +45,15 @@ export default function RootLayout({
 }: Readonly<{ children: React.ReactNode }>) {
   return (
     // suppressHydrationWarning is required by next-themes, which mutates the
-    // class attribute on <html> before React hydrates (wired up in Phase 3).
+    // class attribute on <html> before React hydrates (§23.3 frontend task 7).
     <html lang="en" suppressHydrationWarning>
       <body className={`${inter.variable} ${jetbrainsMono.variable} antialiased`}>
-        {children}
-        <Toaster richColors closeButton position="bottom-right" />
+        <ThemeProvider>
+          <QueryProvider>
+            {children}
+            <ToastProvider />
+          </QueryProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

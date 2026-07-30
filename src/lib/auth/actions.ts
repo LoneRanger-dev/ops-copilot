@@ -28,6 +28,7 @@ import {
 import { buildProvisioningQrSvg, generateTotpSecret, verifyTotpCode } from './mfa';
 import {
   type ActionResult,
+  changePasswordSchema,
   forgotPasswordSchema,
   loginSchema,
   mfaCodeSchema,
@@ -36,6 +37,7 @@ import {
   signupSchema,
 } from './schemas';
 import type { DemoUser } from './demo-store';
+import { requireUser } from './server';
 
 const GENERIC_LOGIN_ERROR: ActionResult = {
   ok: false,
@@ -370,4 +372,82 @@ export async function verifySupabaseMfaAction(
     };
 
   redirect(toRoute(next));
+}
+
+/**
+ * Password change for an already fully-authenticated user (settings/security
+ * page), distinct from the forgot-password recovery flow. Demo mode
+ * re-verifies the current password before accepting a new one; Supabase's
+ * `updateUser` operates on the already-verified session.
+ */
+export async function changePasswordAction(
+  _prevState: ActionResult | null,
+  formData: FormData,
+): Promise<ActionResult> {
+  const parsed = changePasswordSchema.safeParse({
+    currentPassword: formData.get('currentPassword'),
+    newPassword: formData.get('newPassword'),
+  });
+  if (!parsed.success) return { ok: false, message: firstIssueMessage(parsed.error) };
+
+  if (isConfigured.supabase) {
+    const supabase = await createRouteHandlerSupabaseClient();
+    const { error } = await supabase.auth.updateUser({
+      password: parsed.data.newPassword,
+    });
+    if (error) return { ok: false, message: error.message };
+    return { ok: true, message: 'Password updated.' };
+  }
+
+  const user = await requireUser();
+  const verified = demoVerifyCredentials(user.email, parsed.data.currentPassword);
+  if (!verified) return { ok: false, message: 'Your current password is incorrect.' };
+
+  demoUpdatePassword(user.id, parsed.data.newPassword);
+  return { ok: true, message: 'Password updated.' };
+}
+
+/**
+ * Voluntary MFA self-enrolment from the settings page (demo mode), as
+ * distinct from the mandatory admin enrolment gated at login. Operates on
+ * the current fully-authenticated session — no pending cookie involved.
+ */
+export async function beginDemoSelfMfaEnrollmentAction(): Promise<{
+  secret: string;
+  qrSvg: string;
+}> {
+  const authUser = await requireUser();
+  const user = findDemoUserById(authUser.id);
+  if (!user) throw new Error('User not found.');
+
+  const secret = user.pendingMfaSecret ?? generateTotpSecret();
+  if (!user.pendingMfaSecret) demoBeginMfaEnrollment(user.id, secret);
+  const qrSvg = await buildProvisioningQrSvg(secret, user.email);
+  return { secret, qrSvg };
+}
+
+/** Confirms voluntary self-enrolment; does not touch the session cookie. */
+export async function confirmDemoSelfMfaEnrollmentAction(
+  _prevState: ActionResult | null,
+  formData: FormData,
+): Promise<ActionResult> {
+  const parsed = mfaCodeSchema.safeParse({ code: formData.get('code') });
+  if (!parsed.success) return { ok: false, message: firstIssueMessage(parsed.error) };
+
+  const authUser = await requireUser();
+  const user = findDemoUserById(authUser.id);
+  if (!user) return { ok: false, message: 'User not found.' };
+
+  if (
+    !user.pendingMfaSecret ||
+    !verifyTotpCode(user.pendingMfaSecret, parsed.data.code)
+  ) {
+    return {
+      ok: false,
+      message: 'Incorrect code. Check your authenticator app and try again.',
+    };
+  }
+
+  demoConfirmMfaEnrollment(user.id);
+  return { ok: true, message: 'Two-factor authentication enabled.' };
 }

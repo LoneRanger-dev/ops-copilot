@@ -1,5 +1,9 @@
 import { randomBytes, randomUUID, scryptSync, timingSafeEqual } from 'node:crypto';
-import type { UserRole } from '@/config/constants';
+import {
+  DEFAULT_PREFERENCES,
+  type UserPreferences,
+  type UserRole,
+} from '@/config/constants';
 
 /**
  * Demo-mode user store (hackathon portability override —
@@ -30,6 +34,7 @@ export interface DemoUser {
   pendingMfaSecret: string | null;
   passwordHash: string;
   passwordSalt: string;
+  preferences: UserPreferences;
   createdAt: string;
 }
 
@@ -68,6 +73,7 @@ function makeUser(
     pendingMfaSecret: null,
     passwordHash: hash,
     passwordSalt: salt,
+    preferences: DEFAULT_PREFERENCES,
     createdAt: new Date().toISOString(),
   };
 }
@@ -184,6 +190,25 @@ export function demoUpdatePassword(userId: string, newPassword: string): boolean
   user.passwordSalt = salt;
   user.passwordHash = hash;
   return true;
+}
+
+export interface DemoProfilePatch {
+  fullName?: string;
+  department?: string;
+  preferences?: Partial<UserPreferences>;
+}
+
+/** Backs `PATCH /api/v1/profile` in demo mode (§23.3 backend task 2). */
+export function demoUpdateProfile(
+  userId: string,
+  patch: DemoProfilePatch,
+): DemoUser | null {
+  const user = findDemoUserById(userId);
+  if (!user) return null;
+  if (patch.fullName !== undefined) user.fullName = patch.fullName;
+  if (patch.department !== undefined) user.department = patch.department;
+  if (patch.preferences) user.preferences = { ...user.preferences, ...patch.preferences };
+  return user;
 }
 
 export function demoBeginMfaEnrollment(userId: string, secret: string): boolean {

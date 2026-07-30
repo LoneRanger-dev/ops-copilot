@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { DENSITY_VALUES, THEME_VALUES } from '@/config/constants';
 
 /**
  * Shared client + server validation schemas for the auth surface
@@ -43,6 +44,12 @@ export const resetPasswordSchema = z.object({
 });
 export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>;
 
+export const changePasswordSchema = z.object({
+  currentPassword: z.string().min(1, 'Current password is required.'),
+  newPassword: strongPassword,
+});
+export type ChangePasswordInput = z.infer<typeof changePasswordSchema>;
+
 export const mfaCodeSchema = z.object({
   code: z
     .string()
@@ -50,6 +57,23 @@ export const mfaCodeSchema = z.object({
   factorId: z.string().optional(),
 });
 export type MfaCodeInput = z.infer<typeof mfaCodeSchema>;
+
+/** `PATCH /api/v1/profile` body (MASTER_BUILD_SPEC.md §23.3 backend task 2). */
+export const profileUpdateSchema = z
+  .object({
+    fullName: z.string().trim().min(1).max(120).optional(),
+    department: z.string().trim().max(120).optional(),
+    preferences: z
+      .object({
+        theme: z.enum(THEME_VALUES).optional(),
+        density: z.enum(DENSITY_VALUES).optional(),
+      })
+      .optional(),
+  })
+  .refine((value) => Object.keys(value).length > 0, {
+    message: 'At least one field must be provided.',
+  });
+export type ProfileUpdateInput = z.infer<typeof profileUpdateSchema>;
 
 /** Uniform Server Action result — `actions.ts` cannot export non-function values. */
 export interface ActionResult {
