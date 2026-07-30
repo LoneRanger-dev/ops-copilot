@@ -3,13 +3,15 @@ import type { Database, JobType } from '@/types/database.types';
 import type { Job } from '@/lib/db/queries/jobs.query';
 import { completeJob, failJob } from '@/lib/db/queries/jobs.query';
 import { logger } from '@/lib/observability/logger';
+import { handleDocumentIngest } from '@/lib/jobs/handlers/document-ingest.handler';
+import { handleDocumentReindex } from '@/lib/jobs/handlers/document-reindex.handler';
 
 /**
- * Job dispatch (MASTER_BUILD_SPEC.md §23.4 backend task 3). Handlers are
- * registered empty this phase — `document.ingest` arrives in Phase 5,
- * `incident.sync` in Phase 8, `memory.summarise` in Phase 6,
- * `analytics.rollup`/`retention.purge` in Phase 9 — each phase fills in its
- * own entry in `HANDLERS` without touching this dispatcher.
+ * Job dispatch (MASTER_BUILD_SPEC.md §23.4 backend task 3, §23.5 backend
+ * task 8). `document.ingest`/`document.reindex` register here in Phase 5;
+ * `incident.sync` (Phase 8), `memory.summarise` (Phase 6), and
+ * `analytics.rollup`/`retention.purge` (Phase 9) each add their own entry
+ * without touching this dispatcher.
  */
 export type JobHandler = (payload: Record<string, unknown>) => Promise<void>;
 
@@ -18,6 +20,9 @@ const HANDLERS: Partial<Record<JobType, JobHandler>> = {};
 export function registerHandler(type: JobType, handler: JobHandler): void {
   HANDLERS[type] = handler;
 }
+
+registerHandler('document.ingest', handleDocumentIngest);
+registerHandler('document.reindex', handleDocumentReindex);
 
 export interface WorkerResult {
   readonly jobId: string;

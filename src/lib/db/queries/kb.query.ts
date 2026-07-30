@@ -61,6 +61,51 @@ export async function softDeleteKbDocument(
   if (error) throw error;
 }
 
+/** Hard delete — cascades to `kb_document_versions` and `kb_chunks` via FK (FR-KB-8). */
+export async function deleteKbDocument(
+  supabase: SupabaseClient<Database>,
+  id: string,
+): Promise<void> {
+  const { error } = await supabase.from('kb_documents').delete().eq('id', id);
+  if (error) throw error;
+}
+
+export interface KbDocumentStatusPatch {
+  readonly status: KbDocument['status'];
+  readonly chunkCount?: number;
+  readonly errorMessage?: string | null;
+  readonly indexedAt?: string | null;
+}
+
+export async function updateKbDocumentStatus(
+  supabase: SupabaseClient<Database>,
+  id: string,
+  patch: KbDocumentStatusPatch,
+): Promise<void> {
+  const { error } = await supabase
+    .from('kb_documents')
+    .update({
+      status: patch.status,
+      updated_at: new Date().toISOString(),
+      ...(patch.chunkCount !== undefined ? { chunk_count: patch.chunkCount } : {}),
+      ...(patch.errorMessage !== undefined ? { error_message: patch.errorMessage } : {}),
+      ...(patch.indexedAt !== undefined ? { indexed_at: patch.indexedAt } : {}),
+    })
+    .eq('id', id);
+  if (error) throw error;
+}
+
+export async function deleteKbChunksForDocument(
+  supabase: SupabaseClient<Database>,
+  documentId: string,
+): Promise<void> {
+  const { error } = await supabase
+    .from('kb_chunks')
+    .delete()
+    .eq('document_id', documentId);
+  if (error) throw error;
+}
+
 export async function insertKbChunks(
   supabase: SupabaseClient<Database>,
   chunks: readonly TablesInsert<'kb_chunks'>[],

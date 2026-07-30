@@ -1,5 +1,6 @@
 import { Client } from 'pg';
 import Redis from 'ioredis';
+import { getOpenAiClient } from '@/lib/ai/llm/openai';
 import { env, isConfigured } from '@/config/env';
 import { HEALTH_CHECK_TIMEOUT_MS } from '@/config/constants';
 import { logger } from '@/lib/observability/logger';
@@ -129,6 +130,31 @@ async function checkRedis(): Promise<DependencyHealth> {
 }
 
 /**
+ * OpenAI reachability (MASTER_BUILD_SPEC.md §23.5 files to modify). Unlike
+ * Postgres/Redis, `OPENAI_API_KEY` is always configured (it's the one
+ * required variable), so this check always runs — there is no
+ * `not_configured` state for it. `models.retrieve` on the configured fast
+ * model is the cheapest authenticated call the API offers.
+ */
+async function checkOpenAi(): Promise<DependencyHealth> {
+  const started = Date.now();
+  try {
+    await withTimeout(
+      getOpenAiClient().models.retrieve(env.OPENAI_MODEL_FAST),
+      HEALTH_CHECK_TIMEOUT_MS,
+    );
+    return { status: 'up', latencyMs: Date.now() - started };
+  } catch (error) {
+    logger.warn({ err: error }, 'Health check failed: openai');
+    return {
+      status: 'down',
+      latencyMs: null,
+      note: error instanceof Error ? error.message : 'Unknown error',
+    };
+  }
+}
+
+/**
  * Overall status.
  *
  * Nothing is a hard dependency yet: the application serves without Postgres or
@@ -142,15 +168,17 @@ function overallStatus(deps: Record<string, DependencyHealth>): DependencyStatus
 }
 
 export async function GET(): Promise<Response> {
-  const [{ postgres, vector }, redis] = await Promise.all([
+  const [{ postgres, vector }, redis, openai] = await Promise.all([
     checkPostgres(),
     checkRedis(),
+    checkOpenAi(),
   ]);
 
   const dependencies: Record<string, DependencyHealth> = {
     database: postgres,
     vector,
     redis,
+    openai,
   };
   const status = overallStatus(dependencies);
 

@@ -24,7 +24,10 @@ create index idx_job_type on job_queue(job_type, status);
 
 alter table job_queue enable row level security;
 
--- JOB QUEUE — service role only. No policy grants access to authenticated users,
--- which means the table is invisible to them, except admins who may inspect it.
+-- JOB QUEUE — service role bypasses RLS entirely for processing. Admins may
+-- also enqueue jobs from their own session (e.g. the KB upload route
+-- enqueueing `document.ingest`) and inspect the queue; no other role can.
 create policy job_admin on job_queue for select
   using (org_id = auth_org() and is_admin());
+create policy job_insert_admin on job_queue for insert
+  with check (org_id = auth_org() and is_admin());

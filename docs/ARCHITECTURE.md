@@ -7,7 +7,7 @@ Updated at every phase boundary (Build Rule 10). The authoritative specification
 is `MASTER_BUILD_SPEC.md` at the repository root; this document records what has
 actually been built and where reality diverged from the specification.
 
-**Current phase: 2 of 12 — Authentication (complete).**
+**Current phase: 5 of 12 — Knowledge Base (complete).**
 
 ---
 
@@ -316,3 +316,55 @@ its actual authentication is the constant-time `x-cron-secret` comparison
 inside the route handler itself, not the middleware's session check. The two
 are independent boundaries: skipping the session check does not skip the
 secret check.
+
+## 10. Phase 5 — Knowledge Base architecture
+
+Full detail lives in [`RAG.md`](RAG.md). Summary for architectural context:
+
+### 10.1 Extraction runs synchronously, not in the async job
+
+§12.2's pipeline table implies extraction could happen at any stage before
+chunking. This deployment has no Supabase Storage bucket (§23.5 database
+task 1 — a documented gap, no live Supabase project to configure one
+against), so there is no durable place to store the original file bytes for
+a later job to re-read. Extraction and normalisation therefore run
+synchronously inside `POST /api/v1/kb/documents`, writing the result
+straight into `kb_documents.raw_content`; the async `document.ingest` job
+picks up from there (chunk → embed → store → verify). This keeps the
+upload route's own request bounded (extraction is CPU-bound and fast for
+realistic document sizes) while still making the expensive part —
+embedding — asynchronous.
+
+### 10.2 A second RLS addition: admins may enqueue jobs
+
+`012_jobs.sql` (Phase 4) originally granted only `SELECT` on `job_queue` to
+admins; no role could `INSERT`. The KB upload and reindex routes run under
+the calling admin's own session (not the service role), so enqueueing
+`document.ingest`/`document.reindex` needed a new `job_insert_admin` policy
+(`with check (org_id = auth_org() and is_admin())`). This is the smaller,
+more surgical fix compared to the alternative of adding those routes to the
+service-role allow-list — it keeps the queue insertable only by the role
+that already has `kb:write`, without widening the set of code that can
+bypass RLS entirely.
+
+### 10.3 One route serves both real and demo articles
+
+Phase 3's demo `/knowledge/[slug]` route and the spec's `/knowledge/
+[documentId]` route cannot coexist — Next.js requires every dynamic segment
+at the same path position to share one parameter name across all routes.
+The demo route was renamed to `[documentId]` and its page component branches
+on `isConfigured.supabase`: a real `kb_documents.id` (UUID) when configured,
+a demo slug from `lib/rag/demo-kb.ts` otherwise. Same resolution as Phase 2's
+dual-mode auth and Phase 4's admin row-count card — one URL shape, two
+backends, selected by the same `isConfigured` flag everywhere else in the
+codebase.
+
+### 10.4 `mammoth`'s bundled types are stale
+
+`node_modules/mammoth/lib/index.d.ts` does not declare `convertToMarkdown`,
+even though the package exports it at runtime (`lib/index.js`). Using
+`extractRawText` instead (the only conversion function the types do
+declare) would discard the heading structure the chunker depends on
+entirely, so `lib/rag/extraction.ts` casts the import to a narrow interface
+that includes the real function rather than switching extraction methods to
+match an outdated `.d.ts`.
