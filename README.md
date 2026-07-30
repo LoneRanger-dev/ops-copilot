@@ -14,23 +14,31 @@ grounds every factual claim in cited evidence.
 
 ---
 
-## Quick start
+## Setup
 
-Five steps. No Docker, no database install, no external services.
+Four steps from a fresh clone to a running application.
 
 ```bash
-git clone <repository-url>
-cd ops-copilot
+# 1. Install dependencies
 npm install
-cp .env.example .env.local     # then paste your OpenAI key into it
+
+# 2. Create your environment file
+cp .env.example .env.local
+
+# 3. Add your OpenAI API key
+#    Open .env.local and set:
+#      OPENAI_API_KEY=sk-...
+
+# 4. Run
 npm run dev
 ```
 
 Open <http://localhost:3000>.
 
-**`OPENAI_API_KEY` is the only value you need to supply.** Every other variable
-has a working default — you can delete the rest of `.env.local` and the
-application still runs.
+**That is the whole setup.** No Docker, no database to install, no Redis, no
+ServiceNow instance, no accounts to create.
+
+On Windows, substitute `copy .env.example .env.local` for step 2.
 
 ### Prerequisites
 
@@ -40,7 +48,15 @@ application still runs.
 | npm         | >= 10   | Ships with Node             |
 | OpenAI key  | —       | The judges provide this key |
 
-Nothing else. No Docker, no Postgres, no Redis, no ServiceNow instance.
+### Verifying setup
+
+```bash
+npm run check:env    # confirms your key is valid and shows what is configured
+```
+
+**`OPENAI_API_KEY` is the only value you must supply.** Every other variable in
+`.env.example` is commented out and has a working default — you can delete all
+of them and the application still runs.
 
 ---
 
@@ -173,12 +189,16 @@ portable and the setup to a single command:
 
 ## Documentation
 
-| Document                                       | Contents                                       |
-| ---------------------------------------------- | ---------------------------------------------- |
-| [`MASTER_BUILD_SPEC.md`](MASTER_BUILD_SPEC.md) | The authoritative specification, all 12 phases |
-| [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | What is built, and where reality diverged      |
-| [`docs/progress.md`](docs/progress.md)         | Phase-by-phase progress log                    |
-| [`docs/decisions/`](docs/decisions/)           | Architecture Decision Records                  |
+| Document                                                             | Contents                                       |
+| -------------------------------------------------------------------- | ---------------------------------------------- |
+| [`MASTER_BUILD_SPEC.md`](MASTER_BUILD_SPEC.md)                       | The authoritative specification, all 12 phases |
+| [`docs/IMPLEMENTATION_OVERRIDE.md`](docs/IMPLEMENTATION_OVERRIDE.md) | Hackathon portability constraints              |
+| [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)                       | What is built, and where reality diverged      |
+| [`docs/progress.md`](docs/progress.md)                               | Phase-by-phase progress log                    |
+| [`docs/PHASE_1_COMPLETION.md`](docs/PHASE_1_COMPLETION.md)           | Phase 1 verification report                    |
+| [`docs/decisions/`](docs/decisions/)                                 | Architecture Decision Records                  |
+| [`docs/design-reference/`](docs/design-reference/)                   | Visual implementation targets for Phase 3      |
+| [`docs/discovery/`](docs/discovery/)                                 | Original discovery documents (provenance)      |
 
 ---
 
