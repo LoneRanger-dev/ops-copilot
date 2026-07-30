@@ -1,29 +1,49 @@
 'use client';
 
+import { useState, type FormEvent } from 'react';
 import { SendIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 
+interface AssistantInputProps {
+  onSubmit: (text: string) => void | Promise<void>;
+  disabled?: boolean;
+}
+
 /**
- * Input row (MASTER_BUILD_SPEC.md §23.3 frontend task 9).
- *
- * Present but disabled this phase — intelligence (streaming KB-only answers)
- * arrives in Phase 6. Rendering a real, disabled control rather than hiding
- * it communicates that the feature exists and is coming, per FR-WIDGET-3.
+ * Input row, wired to `/api/v1/assistant` via the parent panel's
+ * `onSubmit` (MASTER_BUILD_SPEC.md §23.6 — KB-only, no tool calling).
  */
-export function AssistantInput() {
+export function AssistantInput({ onSubmit, disabled }: AssistantInputProps) {
+  const [value, setValue] = useState('');
+
+  function handleSubmit(event: FormEvent) {
+    event.preventDefault();
+    const trimmed = value.trim();
+    if (!trimmed || disabled) return;
+    setValue('');
+    void onSubmit(trimmed);
+  }
+
   return (
     <form
+      onSubmit={handleSubmit}
       className="border-border flex items-center gap-2 border-t p-3"
-      onSubmit={(event) => event.preventDefault()}
     >
       <Input
-        disabled
-        placeholder="Coming in Phase 6 — knowledge base Q&A"
+        value={value}
+        onChange={(event) => setValue(event.target.value)}
+        disabled={disabled}
+        placeholder="Ask the knowledge base…"
         aria-label="Ask the knowledge base"
         className="flex-1"
       />
-      <Button type="submit" size="icon" disabled aria-label="Send">
+      <Button
+        type="submit"
+        size="icon"
+        disabled={disabled || !value.trim()}
+        aria-label="Send"
+      >
         <SendIcon className="size-4" />
       </Button>
     </form>
