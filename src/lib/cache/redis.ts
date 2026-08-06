@@ -69,6 +69,16 @@ export async function cacheMget(keys: readonly string[]): Promise<(string | null
   );
 }
 
+export async function cacheKeys(pattern: string): Promise<string[]> {
+  return withFailOpen(async () => {
+    const client = getClient()!;
+    // `keys` is acceptable here for the small metrics keyspace; avoid
+    // overuse in high-scale production. Returns empty array on failure.
+    const keys = await client.keys(pattern);
+    return keys;
+  }, []);
+}
+
 /**
  * Atomic increment-with-expiry for fixed-window rate limiting
  * (`lib/cache/rate-limit.ts`). `PEXPIRE ... NX` only sets a TTL the first
