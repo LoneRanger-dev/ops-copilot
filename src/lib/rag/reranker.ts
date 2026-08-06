@@ -42,6 +42,7 @@ export async function rerank(
   let result: z.infer<typeof RerankSchema>;
   try {
     incrCounter('reranker.model_calls');
+    const start = Date.now();
     result = await callStructured({
       schema: RerankSchema,
       system: buildRerankerSystemPrompt(),
@@ -49,6 +50,15 @@ export async function rerank(
       model: MODELS.fast.id,
       temperature: 0,
     });
+    const elapsed = Date.now() - start;
+    // record latency in ms
+    try {
+      // dynamic import to avoid circular deps in some test setups
+      const metrics = await import('@/lib/observability/metrics');
+      metrics.observeHistogram('reranker_latency_ms', elapsed);
+    } catch {
+      // ignore
+    }
   } catch {
     incrCounter('reranker.fallbacks');
     // Malformed/failed model response: fall back to the pre-rerank (RRF)
