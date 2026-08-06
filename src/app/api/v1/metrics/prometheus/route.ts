@@ -29,6 +29,7 @@ export async function GET() {
         const out: Record<string, number> = { ...inMemory };
         for (let i = 0; i < keys.length; i++) {
           const key = keys[i];
+          if (!key) continue;
           const raw = vals[i];
           const metricName = key.replace(/^metrics:/, '');
           const n = raw ? Number(raw) || 0 : 0;
