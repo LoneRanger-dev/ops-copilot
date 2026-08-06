@@ -1,7 +1,7 @@
 import { requireUser } from '@/lib/auth/server';
-import { searchKb } from '@/lib/rag/demo-kb';
 import { streamChatCompletion } from '@/lib/ai/llm/openai';
 import { env } from '@/config/env';
+import { hybridRetrieve } from '@/lib/rag/retriever';
 import { errorResponse, newRequestId } from '@/lib/api/responses';
 import { parseJsonBody } from '@/lib/api/validation';
 import { z } from 'zod';
@@ -23,10 +23,18 @@ export async function POST(request: Request): Promise<Response> {
   const startedAt = Date.now();
 
   try {
-    await requireUser();
+    const user = await requireUser();
     const { message } = await parseJsonBody(request, bodySchema);
 
-    const matches = searchKb(message, 3);
+    const scope = { orgId: user?.orgId ?? 'demo', maxVisibility: 'public' } as const;
+
+    const matches = await hybridRetrieve(
+      message,
+      scope,
+      'widget',
+      user?.role ?? 'end_user',
+      3,
+    );
 
     if (matches.length === 0) {
       const encoder = new TextEncoder();
@@ -47,7 +55,10 @@ export async function POST(request: Request): Promise<Response> {
     }
 
     const context = matches
-      .map((a, i) => `[${i + 1}] ${a.title}\n${a.content}`)
+      .map(
+        (a, i) => `[${i + 1}] ${a.documentTitle}
+${a.content}`,
+      )
       .join('\n\n---\n\n');
 
     const stream = streamChatCompletion(
@@ -69,7 +80,7 @@ export async function POST(request: Request): Promise<Response> {
     return new Response(stream, {
       headers: {
         'Content-Type': 'text/plain; charset=utf-8',
-        'X-Kb-Sources': matches.map((m) => m.slug).join(','),
+        'X-Kb-Sources': matches.map((m) => m.documentId).join(','),
       },
     });
   } catch (error) {

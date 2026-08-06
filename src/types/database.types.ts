@@ -985,6 +985,22 @@ export interface Database {
           similarity: number;
         }[];
       };
+      match_kb_chunks_sparse: {
+        Args: {
+          query_text: string;
+          match_count?: number;
+          filter_org_id?: string | null;
+          max_visibility?: DocVisibility;
+        };
+        Returns: {
+          chunk_id: string;
+          document_id: string;
+          content: string;
+          heading_path: string[];
+          rank: number;
+          document_title: string;
+        }[];
+      };
     };
     Enums: {
       user_role: UserRole;

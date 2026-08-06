@@ -69,6 +69,27 @@ export async function cacheMget(keys: readonly string[]): Promise<(string | null
   );
 }
 
+/**
+ * Atomic increment-with-expiry for fixed-window rate limiting
+ * (`lib/cache/rate-limit.ts`). `PEXPIRE ... NX` only sets a TTL the first
+ * time a window's key is created — later increments in the same window
+ * leave the original expiry untouched, which is what makes it a fixed
+ * window rather than a sliding one that never fully resets.
+ */
+export async function cacheIncrWithWindow(
+  key: string,
+  windowSeconds: number,
+): Promise<number | null> {
+  return withFailOpen(async () => {
+    const client = getClient()!;
+    const count = await client.incr(key);
+    if (count === 1) {
+      await client.expire(key, windowSeconds);
+    }
+    return count;
+  }, null);
+}
+
 /** Test-only: forces the next call to re-attempt a connection. */
 export function _resetForTests(): void {
   connectionFailed = false;

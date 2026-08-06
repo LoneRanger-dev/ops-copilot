@@ -16,13 +16,15 @@ export function embeddingCacheKey(contentHash: string): string {
   return prefixed(`emb:v1:${contentHash}`);
 }
 
-/** Role is part of the key deliberately — §12.8's security note. */
-export function semanticCacheKey(
-  surface: string,
-  role: string,
-  queryHash: string,
-): string {
-  return prefixed(`sem:v1:${surface}:${role}:${queryHash}`);
+/**
+ * Role is part of the key deliberately — §12.8's security note. Scoped by
+ * surface + role only (not per-query): `lib/rag/semantic-cache.ts` stores a
+ * small capped list of recent (embedding, answer) entries per scope and
+ * does the similarity match in-process, since Redis has no native vector
+ * index to key a per-query entry against.
+ */
+export function semanticCacheKey(surface: string, role: string): string {
+  return prefixed(`sem:v1:${surface}:${role}`);
 }
 
 export function rateLimitKey(userId: string, routeClass: string): string {

@@ -148,3 +148,77 @@ export async function hybridSearchKbChunks(
     rrfScore: row.rrf_score,
   }));
 }
+
+export interface DenseSearchResult {
+  readonly chunkId: string;
+  readonly documentId: string;
+  readonly content: string;
+  readonly headingPath: readonly string[];
+  readonly documentTitle: string;
+  readonly similarity: number;
+}
+
+/** Dense-only retrieval (`match_kb_chunks`, §23.6 backend task 1). */
+export async function matchKbChunks(
+  supabase: SupabaseClient<Database>,
+  params: {
+    queryEmbedding: number[];
+    matchCount?: number;
+    orgId?: string;
+    maxVisibility?: DocVisibility;
+  },
+): Promise<DenseSearchResult[]> {
+  const { data, error } = await supabase.rpc('match_kb_chunks', {
+    query_embedding: params.queryEmbedding,
+    match_count: params.matchCount ?? 20,
+    filter_org_id: params.orgId ?? null,
+    max_visibility: params.maxVisibility ?? 'internal',
+  });
+  if (error) throw error;
+
+  return (data ?? []).map((row) => ({
+    chunkId: row.chunk_id,
+    documentId: row.document_id,
+    content: row.content,
+    headingPath: row.heading_path,
+    documentTitle: row.document_title,
+    similarity: row.similarity,
+  }));
+}
+
+export interface SparseSearchResult {
+  readonly chunkId: string;
+  readonly documentId: string;
+  readonly content: string;
+  readonly headingPath: readonly string[];
+  readonly documentTitle: string;
+  readonly rank: number;
+}
+
+/** Sparse-only retrieval (`match_kb_chunks_sparse`, `016_sparse_search.sql`, §23.6 backend task 2). */
+export async function matchKbChunksSparse(
+  supabase: SupabaseClient<Database>,
+  params: {
+    queryText: string;
+    matchCount?: number;
+    orgId?: string;
+    maxVisibility?: DocVisibility;
+  },
+): Promise<SparseSearchResult[]> {
+  const { data, error } = await supabase.rpc('match_kb_chunks_sparse', {
+    query_text: params.queryText,
+    match_count: params.matchCount ?? 20,
+    filter_org_id: params.orgId ?? null,
+    max_visibility: params.maxVisibility ?? 'internal',
+  });
+  if (error) throw error;
+
+  return (data ?? []).map((row) => ({
+    chunkId: row.chunk_id,
+    documentId: row.document_id,
+    content: row.content,
+    headingPath: row.heading_path,
+    documentTitle: row.document_title,
+    rank: row.rank,
+  }));
+}
