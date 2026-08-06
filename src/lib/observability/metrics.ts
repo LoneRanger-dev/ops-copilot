@@ -43,8 +43,8 @@ export function observeHistogram(name: string, valueMs: number, buckets?: number
     histograms.set(name, h);
   }
   // now h is defined
-  const bucketsArr = h.buckets;
-  const countsArr = h.counts;
+  const bucketsArr = h.buckets!;
+  const countsArr = h.counts!;
   h.sum += valueMs;
   h.count += 1;
   for (let i = 0; i < bucketsArr.length; i++) {
