@@ -1,7 +1,27 @@
+import { cacheGet, cacheSet } from '@/lib/cache/redis';
+import { isConfigured } from '@/config/env';
+
 const counters = new Map<string, number>();
 
 export function incrCounter(name: string, value = 1): void {
-  counters.set(name, (counters.get(name) ?? 0) + value);
+  const next = (counters.get(name) ?? 0) + value;
+  counters.set(name, next);
+
+  // Fire-and-forget persistence to Redis when available. Do not await so
+  // callers remain synchronous — the in-memory snapshot is authoritative
+  // for the current process and tests.
+  if (isConfigured.redis) {
+    (async () => {
+      try {
+        const raw = await cacheGet(`metrics:${name}`);
+        const prev = raw ? Number(raw) || 0 : 0;
+        const updated = prev + value;
+        await cacheSet(`metrics:${name}`, String(updated), 60 * 60 * 24 * 7); // 1 week
+      } catch {
+        // Swallow Redis errors; metrics are best-effort.
+      }
+    })();
+  }
 }
 
 export function getCounters(): Record<string, number> {
