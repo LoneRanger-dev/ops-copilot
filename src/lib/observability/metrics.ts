@@ -42,11 +42,14 @@ export function observeHistogram(name: string, valueMs: number, buckets?: number
     h = { buckets: b, counts: new Array(b.length).fill(0), sum: 0, count: 0 };
     histograms.set(name, h);
   }
+  // now h is defined
+  const bucketsArr = h.buckets;
+  const countsArr = h.counts;
   h.sum += valueMs;
   h.count += 1;
-  for (let i = 0; i < h!.buckets.length; i++) {
-    if (valueMs <= h!.buckets[i]) {
-      h!.counts[i] += 1;
+  for (let i = 0; i < bucketsArr.length; i++) {
+    if (valueMs <= bucketsArr[i]) {
+      countsArr[i] += 1;
       break;
     }
   }
