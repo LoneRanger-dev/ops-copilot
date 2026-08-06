@@ -1,4 +1,4 @@
-import { cacheIncrWithWindow } from '@/lib/cache/redis';
+import { cacheIncrWithWindow, cacheSAdd } from '@/lib/cache/redis';
 import { isConfigured } from '@/config/env';
 
 const counters = new Map<string, number>();
@@ -15,6 +15,8 @@ export function incrCounter(name: string, value = 1): void {
     (async () => {
       try {
         await cacheIncrWithWindow(`metrics:${name}`, 60 * 60 * 24 * 7);
+        // Record the metric name in a Redis set for efficient listing.
+        await cacheSAdd('metrics:names', name);
       } catch {
         // Swallow Redis errors; metrics are best-effort.
       }

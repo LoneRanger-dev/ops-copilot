@@ -1,19 +1,8 @@
 import { NextResponse } from 'next/server';
 import metrics from '@/lib/observability/metrics';
-import { cacheMget, cacheScan } from '@/lib/cache/redis';
+import { cacheMget, cacheSMembers } from '@/lib/cache/redis';
 import { isConfigured } from '@/config/env';
-
-function renderPrometheus(counters: Record<string, number>): string {
-  // Use a single metric name and expose keys as a label for flexibility.
-  const lines: string[] = [];
-  lines.push('# HELP ops_copilot_counter Generic counters for ops-copilot');
-  lines.push('# TYPE ops_copilot_counter counter');
-  for (const [k, v] of Object.entries(counters)) {
-    const label = `name=\"${k}\"`;
-    lines.push(`ops_copilot_counter{${label}} ${v}`);
-  }
-  return lines.join('\n') + '\n';
-}
+import { renderPrometheus } from '@/lib/observability/prometheus';
 
 export async function GET() {
   const inMemory = metrics.getCounters();
@@ -23,17 +12,17 @@ export async function GET() {
   // exporter useful in single-process dev and aggregated in-prod.
   if (isConfigured.redis) {
     try {
-      const keys = await cacheScan('metrics:*');
-      if (keys.length > 0) {
+      const names = await cacheSMembers('metrics:names');
+      if (names.length > 0) {
+        const keys = names.map((n) => `metrics:${n}`);
         const vals = await cacheMget(keys);
         const out: Record<string, number> = { ...inMemory };
-        for (let i = 0; i < keys.length; i++) {
-          const key = keys[i];
-          if (!key) continue;
+        for (let i = 0; i < names.length; i++) {
+          const name = names[i];
+          if (!name) continue;
           const raw = vals[i];
-          const metricName = key.replace(/^metrics:/, '');
           const n = raw ? Number(raw) || 0 : 0;
-          out[metricName] = n;
+          out[name] = n;
         }
         return new NextResponse(renderPrometheus(out), {
           headers: { 'Content-Type': 'text/plain; version=0.0.4; charset=utf-8' },

@@ -102,6 +102,20 @@ export async function cacheIncrWithWindow(
   }, null);
 }
 
+export async function cacheSAdd(key: string, member: string): Promise<number | null> {
+  return withFailOpen(async () => {
+    const client = getClient()!;
+    return client.sadd(key, member);
+  }, null);
+}
+
+export async function cacheSMembers(key: string): Promise<string[]> {
+  return withFailOpen(async () => {
+    const client = getClient()!;
+    return client.smembers(key);
+  }, []);
+}
+
 /** Test-only: forces the next call to re-attempt a connection. */
 export function _resetForTests(): void {
   connectionFailed = false;
