@@ -26,7 +26,8 @@ export function renderPrometheusWithHistograms(
     parts.push(`# TYPE ${metricBase} histogram`);
     let cumulative = 0;
     for (let i = 0; i < h.buckets.length; i++) {
-      cumulative += h.counts[i];
+      const cnt = h.counts[i] ?? 0;
+      cumulative += cnt;
       parts.push(`${metricBase}_bucket{le="${h.buckets[i]}"} ${cumulative}`);
     }
     // +Inf bucket

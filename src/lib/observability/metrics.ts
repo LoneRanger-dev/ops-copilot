@@ -44,9 +44,9 @@ export function observeHistogram(name: string, valueMs: number, buckets?: number
   }
   h.sum += valueMs;
   h.count += 1;
-  for (let i = 0; i < h.buckets.length; i++) {
-    if (valueMs <= h.buckets[i]) {
-      h.counts[i] += 1;
+  for (let i = 0; i < h!.buckets.length; i++) {
+    if (valueMs <= h!.buckets[i]) {
+      h!.counts[i] += 1;
       break;
     }
   }
