@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import metrics from '@/lib/observability/metrics';
-import { cacheMget, cacheKeys } from '@/lib/cache/redis';
+import { cacheMget, cacheScan } from '@/lib/cache/redis';
 import { isConfigured } from '@/config/env';
 
 function renderPrometheus(counters: Record<string, number>): string {
@@ -23,7 +23,7 @@ export async function GET() {
   // exporter useful in single-process dev and aggregated in-prod.
   if (isConfigured.redis) {
     try {
-      const keys = await cacheKeys('metrics:*');
+      const keys = await cacheScan('metrics:*');
       if (keys.length > 0) {
         const vals = await cacheMget(keys);
         const out: Record<string, number> = { ...inMemory };

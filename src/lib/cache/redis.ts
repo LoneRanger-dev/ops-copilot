@@ -69,13 +69,15 @@ export async function cacheMget(keys: readonly string[]): Promise<(string | null
   );
 }
 
-export async function cacheKeys(pattern: string): Promise<string[]> {
+export async function cacheScan(pattern: string): Promise<string[]> {
   return withFailOpen(async () => {
     const client = getClient()!;
-    // `keys` is acceptable here for the small metrics keyspace; avoid
-    // overuse in high-scale production. Returns empty array on failure.
-    const keys = await client.keys(pattern);
-    return keys;
+    const stream = client.scanStream({ match: pattern, count: 100 });
+    const results: string[] = [];
+    for await (const keys of stream) {
+      for (const k of keys as string[]) results.push(k);
+    }
+    return results;
   }, []);
 }
 

@@ -1,4 +1,4 @@
-import { cacheGet, cacheSet } from '@/lib/cache/redis';
+import { cacheIncrWithWindow } from '@/lib/cache/redis';
 import { isConfigured } from '@/config/env';
 
 const counters = new Map<string, number>();
@@ -11,12 +11,10 @@ export function incrCounter(name: string, value = 1): void {
   // callers remain synchronous — the in-memory snapshot is authoritative
   // for the current process and tests.
   if (isConfigured.redis) {
+    // Use Redis INCR for atomic increments. Fire-and-forget.
     (async () => {
       try {
-        const raw = await cacheGet(`metrics:${name}`);
-        const prev = raw ? Number(raw) || 0 : 0;
-        const updated = prev + value;
-        await cacheSet(`metrics:${name}`, String(updated), 60 * 60 * 24 * 7); // 1 week
+        await cacheIncrWithWindow(`metrics:${name}`, 60 * 60 * 24 * 7);
       } catch {
         // Swallow Redis errors; metrics are best-effort.
       }
