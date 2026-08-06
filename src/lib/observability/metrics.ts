@@ -47,11 +47,9 @@ export function observeHistogram(name: string, valueMs: number, buckets?: number
   const countsArr = h.counts as number[];
   h.sum += valueMs;
   h.count += 1;
-  for (let i = 0; i < bucketsArr.length; i++) {
-    if (valueMs <= bucketsArr[i]) {
-      countsArr[i] += 1;
-      break;
-    }
+  const idx = bucketsArr.findIndex((b) => valueMs <= b);
+  if (idx !== -1) {
+    countsArr[idx] = (countsArr[idx] ?? 0) + 1;
   }
 }
 
