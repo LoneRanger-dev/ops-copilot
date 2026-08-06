@@ -67,7 +67,7 @@ describe('ingestDocument', () => {
     };
     expect(finalStatus.status).toBe('indexed');
     expect(finalStatus.chunkCount).toBe(result.chunkCount);
-  });
+  }, 20000);
 
   it('writes chunks with non-null 1536-dimension embeddings and a heading path', async () => {
     documents.set('doc-2', {

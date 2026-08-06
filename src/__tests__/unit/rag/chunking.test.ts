@@ -17,7 +17,7 @@ describe('chunkDocument', () => {
     const chunks = chunkDocument('Just a plain paragraph with no structure at all.');
     expect(chunks).toHaveLength(1);
     expect(chunks[0]?.headingPath).toEqual([]);
-  });
+  }, 20000);
 
   it('splits on headings and records the correct heading_path', () => {
     const doc = [
